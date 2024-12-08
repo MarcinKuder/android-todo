@@ -10,26 +10,28 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.Icons.Outlined
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -70,19 +72,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ToDoApp(viewModel: TasksViewModel) {
-    val tasks by viewModel.tasks.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
-        topBar = {
-            MyTopBar()
-        },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState)
-        }
+        topBar = { MyTopBar() },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        Column {
-            TasksList(tasks, innerPadding)
+        Column(modifier = Modifier.padding(innerPadding)) {
+            AddTaskPanel(viewModel, snackbarHostState)
+            TasksList(viewModel, snackbarHostState)
         }
     }
 }
@@ -111,10 +109,50 @@ fun MyTopBar() {
 }
 
 @Composable
-fun TasksList(tasks: List<Task>, innerPadding: PaddingValues) {
-    LazyColumn(
-        contentPadding = innerPadding,
+fun AddTaskPanel(viewModel: TasksViewModel, snackbarHostState: SnackbarHostState) {
+    var title by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp, 8.dp, 16.dp, 0.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Enter new task") },
+        )
+        ElevatedButton(
+            onClick = {
+                viewModel.addTask(Task(title = title))
+                scope.launch {
+                    snackbarHostState.showSnackbar("Task added", duration = SnackbarDuration.Short)
+                }
+                title = ""
+            }, modifier = Modifier
+                .height(56.dp)
+                .padding(8.dp, 16.dp, 0.dp, 0.dp),
+            enabled = title.isNotBlank()
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Todo")
+        }
+    }
+}
+
+@Composable
+fun TasksList(viewModel: TasksViewModel, snackbarHostState: SnackbarHostState) {
+    val tasks by viewModel.tasks.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    LazyColumn(modifier = Modifier.padding(8.dp)) {
+        if (error != null) {
+            item {
+                Text(error.toString(), modifier = Modifier.padding(8.dp))
+            }
+        }
         items(tasks) { task ->
             Card(
                 modifier = Modifier
@@ -128,13 +166,29 @@ fun TasksList(tasks: List<Task>, innerPadding: PaddingValues) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     val style = if (task.done) {
-                        TextStyle(textDecoration = TextDecoration.LineThrough)
+                        TextStyle(
+                            textDecoration = TextDecoration.LineThrough,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
                     } else {
                         TextStyle()
                     }
                     Text(text = task.title, style = style)
-                    OutlinedIconButton(onClick = { /* todo */ }, enabled = !task.done) {
-                        Icon(Icons.Outlined.Done, contentDescription = null)
+                    Row() {
+                        IconButton(onClick = {
+                            viewModel.deleteTask(task)
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Task deleted", duration = SnackbarDuration.Short)
+                            }
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = null)
+                        }
+                        OutlinedIconButton(onClick = {
+                            viewModel.setDone(task)
+                        }, enabled = !task.done) {
+
+                            Icon(Outlined.Done, contentDescription = null)
+                        }
                     }
                 }
             }
