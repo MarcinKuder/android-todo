@@ -67,7 +67,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
 fun ToDoApp(viewModel: TasksViewModel) {
     val tasks by viewModel.tasks.collectAsState()
