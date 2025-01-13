@@ -13,8 +13,10 @@ class TaskRepository(
 ) {
     private suspend fun refresh() {
         val remoteTasks = remoteDataSource.getAll()
-        localDataSource.deleteAll()
-        localDataSource.upsertAll(remoteTasks.toLocal())
+        if (remoteTasks.isNotEmpty()) {
+            localDataSource.deleteAll()
+            localDataSource.upsertAll(remoteTasks.toLocal())
+        }
     }
 
     suspend fun getAll(fromRemote: Boolean): List<Task> {
